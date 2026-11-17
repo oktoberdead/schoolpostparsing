@@ -7,6 +7,8 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 import requests
+from PIL import Image, ImageOps
+from io import BytesIO
 from docx import Document
 from docx.enum.section import WD_SECTION
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -67,11 +69,16 @@ def category(text: str) -> str:
     return "useful" if USEFUL.search(text) else "review"
 
 def download(url: str, path: Path) -> bool:
+    """Fetch VK image and normalize its actual format to a Word-friendly JPEG."""
     try:
-        r=requests.get(url,timeout=40); r.raise_for_status()
-        path.write_bytes(r.content); return True
+        r=requests.get(url,timeout=40,headers={"User-Agent":"Mozilla/5.0"}); r.raise_for_status()
+        image=Image.open(BytesIO(r.content))
+        image.seek(0)  # animated sources: use first frame
+        image=ImageOps.exif_transpose(image).convert("RGB")
+        image.save(path,format="JPEG",quality=92,optimize=True)
+        return True
     except Exception as e:
-        print(f"Не удалось скачать фото: {e}",file=sys.stderr); return False
+        print(f"Не удалось получить/обработать фото {url[:100]}: {e}",file=sys.stderr); return False
 
 def make_doc(posts: list[dict], dest: Path, label: str, photo_dir: Path) -> None:
     doc=Document(); sec=doc.sections[0]
