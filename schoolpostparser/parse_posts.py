@@ -20,11 +20,11 @@ USEFUL = re.compile(r"\b(школ|учен|обуча|класс|педагог|
 AD = re.compile(r"\b(реклама|купить|заказать|скидк|промокод|акци[яи] недели|подписывайтесь|переходите по ссылке|партн[её]рск|розыгрыш|продаж|доставка|цены от)\w*", re.I)
 VK_NOISE = re.compile(r"(?:\n?\s*(?:👉|➡️|🔗)?\s*(?:комментарии|обсуждение|подробнее|ссылка на запись)\s*:?\s*https?://\S+)|\[club\d+\|([^\]]+)\]|\[id\d+\|([^\]]+)\]", re.I)
 
-def wall_id(url: str) -> int:
+def wall_id(url: str, token: str) -> int:
     """Resolve public slug to numeric VK group owner_id using VK API."""
     slug = urlparse(url if "://" in url else "https://" + url).path.strip("/").split("/")[0]
     if not slug: raise ValueError("Не удалось определить адрес паблика")
-    r = requests.get(API + "utils.resolveScreenName", params={"screen_name": slug, "v": VERSION}, timeout=30)
+    r = requests.get(API + "utils.resolveScreenName", params={"screen_name": slug, "access_token": token, "v": VERSION}, timeout=30)
     r.raise_for_status(); data = r.json()
     if data.get("error") or not data.get("response") or data["response"].get("type") != "group":
         raise RuntimeError(f"VK не разрешил адрес паблика: {data.get('error', data)}")
@@ -117,7 +117,7 @@ def main():
         posts=[p for p in posts if start.timestamp()<=p.get("date",0)<end.timestamp()]
     else:
         if not args.token: ap.error("Нужен --token или переменная VK_TOKEN; альтернативно --json с экспортом стены")
-        posts=fetch_wall(wall_id(args.url),args.token,start,end)
+        posts=fetch_wall(wall_id(args.url,args.token),args.token,start,end)
     good=[p for p in posts if category(p.get("text",""))=="useful"]
     review=[p for p in posts if category(p.get("text",""))!="useful"]
     out.mkdir(parents=True,exist_ok=True)
